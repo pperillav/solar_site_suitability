@@ -1,200 +1,234 @@
 # Manual de uso - Solar Site Suitability (AHP)
 
-Complemento de QGIS para identificar zonas aptas para parques solares fotovoltaicos
-mediante un análisis multicriterio (MCDA) con el Proceso de Jerarquía Analítica
-(AHP). Versión 1.0.2. Este documento explica qué hace el plugin, cómo usarlo paso a
-paso, qué significa cada campo de la interfaz y qué hace cada función interna.
+Complemento de QGIS para la identificacion de zonas aptas para proyectos solares fotovoltaicos mediante un analisis multicriterio basado en AHP.
 
----
+## Requisitos
 
-## 1. Qué hace el plugin
+- QGIS 3.28 o superior.
+- El complemento esta disenado para ejecutarse dentro del entorno Python de QGIS y utiliza herramientas propias de QGIS, asi como proveedores de procesamiento incluidos, como GDAL y algoritmos nativos de QGIS.
+- Para el flujo de trabajo con ingreso manual de radiacion solar, no se requiere conexion externa una vez que las capas de entrada esten disponibles localmente.
+- Para el flujo de trabajo con ERA5, el usuario debe contar con:
+  - Una cuenta activa en Copernicus Climate Data Store.
+  - Las licencias de los conjuntos de datos requeridos aceptadas en el perfil de usuario de Copernicus.
+  - Un archivo de credenciales de la API configurado con el nombre `.cdsapirc` en la carpeta del usuario.
+  - El paquete de Python `cdsapi` instalado en el entorno Python utilizado por QGIS.
+- El complemento acepta un Modelo Digital de Elevacion (DEM) como insumo principal del terreno y puede utilizar una capa de cobertura del suelo o una capa de restricciones para excluir areas no aptas, tales como cuerpos de agua, zonas protegidas, bosques densos, areas urbanas u otras restricciones definidas por el usuario.
+- El DEM debe estar correctamente georreferenciado. Para obtener mejores resultados, se recomienda que la resolucion del DEM sea coherente con la escala del analisis. DEM de resolucion muy gruesa pueden generar poligonos viables pixelados, fragmentados o poco representativos.
+- La carpeta de salida debe permitir escritura, ya que el complemento genera archivos intermedios, capas resultado, reportes y, cuando se utiliza ERA5, el archivo de solicitud preparado.
 
-A partir de un modelo de elevación, una fuente de radiación solar y una capa de
-cobertura del suelo, el plugin:
+## Configuracion de Copernicus / ERA5
 
-1. Obtiene la radiación solar de dos maneras a elección: un raster de GHI propio, o
-   la descarga automática de ERA5 (SSRD de Copernicus) que el plugin convierte a GHI.
-2. Armoniza las capas al mismo sistema de coordenadas y tamaño de píxel.
-3. Calcula pendiente y orientación a partir del DEM.
-4. Reclasifica cada criterio (radiación, pendiente, orientación) a una escala 1 a 5.
-5. Combina los criterios con pesos AHP (que tú defines), validados con la Relación de
-   Consistencia (CR < 0.10).
-6. Excluye zonas no viables con máscaras booleanas (pendiente excesiva, orientación
-   desfavorable según hemisferio, coberturas protegidas o urbanas).
-7. Extrae los polígonos contiguos que superan un umbral de aptitud y un área mínima.
-8. Genera el mapa de aptitud, la capa de sitios viables y reportes HTML y CSV.
+La opcion ERA5 permite que el complemento descargue datos de radiacion solar directamente desde Copernicus Climate Data Store y los convierta en un insumo compatible con el modelo de aptitud basado en GHI.
 
----
+Antes de utilizar esta opcion, se debe realizar la siguiente configuracion:
 
-## 2. Requisitos e instalación
+1. Ingresar al portal de Copernicus Climate Data Store.
+2. Crear una cuenta de usuario.
+3. Confirmar la cuenta mediante el correo electronico de verificacion.
+4. Iniciar sesion y abrir el perfil de usuario.
+5. Completar la informacion del perfil, incluyendo pais, tipo de uso, institucion y actividad tematica.
+6. Abrir la seccion de licencias y aceptar los terminos y condiciones de los conjuntos de datos requeridos.
+7. Copiar las credenciales API indicadas en el perfil de Copernicus.
 
-- QGIS 3.28 o superior. El flujo con GHI manual no necesita paquetes adicionales.
-- Para el flujo ERA5: el paquete `cdsapi` en el Python de QGIS y un archivo de
-  credenciales `~/.cdsapirc` con una cuenta del Copernicus Climate Data Store. Es una
-  dependencia opcional; sin ella, igual puedes usar el GHI manual.
-- Instalación: Complementos > Administrar e instalar complementos > Instalar a partir
-  de ZIP > selecciona `dist/solar_site_suitability.zip` > Instalar.
-- Queda en el menú **Raster > Solar Site Suitability (AHP)**.
+Crear un archivo llamado `.cdsapirc` en la carpeta principal del usuario. En Windows, normalmente corresponde a la siguiente ruta:
 
----
+```text
+C:\Users\<usuario>\.cdsapirc
+```
 
-## 3. Insumos de entrada
+Verificar que el archivo no quede guardado como `.txt`. El nombre debe conservarse exactamente como `.cdsapirc`.
 
-| Capa | Qué es | Formato | Fuente típica |
-|------|--------|---------|---------------|
-| DEM | Modelo de elevación; de él se derivan pendiente y orientación | Raster | ALOS PALSAR 12.5 m |
-| Radiación solar | GHI manual, o ERA5 SSRD descargado y convertido a GHI | Raster, o descarga | Propio / Copernicus ERA5 |
-| Uso/Cobertura | Clases de cobertura para excluir zonas | Raster o vectorial (polígonos) | MapBiomas u otra |
+El archivo debe contener la URL de la API y el token personal suministrado por Copernicus.
 
-Novedades de la v1.0.2: la radiación puede venir de ERA5 (no necesitas conseguir el
-GHI por tu cuenta) y la cobertura puede ser un raster o una capa vectorial de
-polígonos (el plugin la rasteriza automáticamente). Fija el CRS del proyecto en uno
-proyectado en metros antes de empezar.
+Abrir la consola OSGeo4W Shell de QGIS y verificar que Python este disponible mediante el comando:
 
----
+```bash
+python --version
+```
 
-## 4. Uso paso a paso
+Instalar o actualizar el cliente CDS API dentro del entorno Python de QGIS:
 
-1. Carga el DEM (y el GHI manual y/o la cobertura) en QGIS.
-2. Fija el CRS del proyecto: Proyecto > Propiedades > CRS.
-3. Abre Raster > Solar Site Suitability (AHP).
-4. Elige la **fuente de radiación**: GHI manual o ERA5. Si eliges ERA5, aparecen los
-   controles de período, horas, resolución temporal y percentiles.
-5. Selecciona las capas de entrada y, si aplica, el campo de la cobertura vectorial.
-6. Ajusta los parámetros base y el hemisferio (sección 5).
-7. Define la matriz AHP (sección 6).
-8. Elige una carpeta de salida vacía.
-9. Pulsa **Validar y ejecutar**. El panel **Estado** muestra el avance y el resultado.
+```bash
+python -m pip install --upgrade pip
+python -m pip install "cdsapi>=0.7.7"
+```
 
----
+Esta configuracion solo es necesaria cuando el usuario selecciona la opcion `Calcular GHI desde ERA5 SSRD`. Si el usuario ya cuenta con un raster de GHI proveniente de otra fuente, puede utilizar el flujo de trabajo de ingreso manual.
 
-## 5. Qué significa cada campo de la interfaz
+## Instalacion
 
-| Campo | Qué controla | Valor por defecto |
-|-------|--------------|-------------------|
-| Fuente de radiación | GHI manual o ERA5 SSRD (descarga) | ERA5 SSRD |
-| DEM / Radiación / Cobertura | Capas de entrada | (selección) |
-| Campo de cobertura (vectorial) | Atributo con el código de clase, si la cobertura es vectorial | (vacío) |
-| Resolución objetivo | Tamaño de píxel al que se remuestrea todo | 12.5 m |
-| Pendiente máxima | Pendiente sobre la cual el terreno se excluye | 15 grados |
-| Umbral de aptitud | Aptitud mínima (1 a 5) para considerar un píxel apto | 4 |
-| Área mínima | Tamaño mínimo de un polígono contiguo para conservarlo | 10 ha |
-| Cortes pendiente | Límites que separan las clases de pendiente | 5, 10, 15 |
-| Hemisferio | Orientación favorable (Norte: al sur; Sur: al norte) | Norte |
-| Clases LULC excluidas | Códigos de cobertura que se eliminan (de tu fuente de cobertura) | las define el usuario |
-| Carpeta de salida | Dónde se escriben los resultados | (selección) |
+Una vez publicado en el repositorio oficial de complementos de QGIS:
 
-Campos específicos del flujo ERA5:
+1. Abrir QGIS.
+2. Ir a `Complementos > Administrar e instalar complementos`.
+3. Buscar `Solar Site Suitability (AHP)`.
+4. Seleccionar `Instalar`.
+5. Activar el complemento, en caso de que no quede habilitado automaticamente.
+6. Abrirlo desde el menu `Raster` o desde el boton de la barra de herramientas.
 
-| Campo ERA5 | Qué controla | Valor por defecto |
-|------------|--------------|-------------------|
-| Buffer (grados) | Margen alrededor del DEM para el área de descarga | 0.10 |
-| Fecha inicial / final | Período de ERA5 a descargar | 2020-01-01 a 2020-12-31 |
-| Modo de horas | Todas las horas o un rango horario | Todas |
-| Resolución temporal de salida | Agregación de los productos (mensual, etc.) | Mensual |
-| Percentiles GHI | Percentiles que definen las clases de aptitud del GHI | 25,50,75 |
-| Guardar NetCDF / GeoTIFF / CSV / recorte | Qué productos ERA5 conservar | Activados |
+Instalacion manual desde este repositorio:
 
-Con GHI manual se usan los **cortes GHI** fijos (4.5, 5.0, 5.5); con ERA5, las clases
-se definen por **percentiles**, porque el rango de la radiación derivada es variable.
+1. Descargar o clonar este repositorio.
+2. Localizar la carpeta instalable del complemento: `solar_site_suitability/`.
+3. Copiar esta carpeta en el directorio de complementos de QGIS. En Windows, una ruta tipica es:
 
-El campo **Hemisferio** hace al plugin utilizable en cualquier parte del mundo: en el
-norte las laderas favorables miran al sur y en el sur miran al norte.
+```text
+C:\Users\<usuario>\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\
+```
 
----
+4. Reiniciar QGIS.
+5. Abrir `Complementos > Administrar e instalar complementos`.
+6. Activar `Solar Site Suitability (AHP)`.
 
-## 6. La matriz AHP
+Si existia una version anterior instalada manualmente o desde un archivo ZIP, se recomienda desinstalarla primero desde el administrador de complementos de QGIS. Si QGIS continua cargando informacion de la version anterior, se debe eliminar manualmente la carpeta `solar_site_suitability/` del directorio de complementos antes de instalar la nueva version. Esto evita conflictos por archivos antiguos o informacion almacenada en cache.
 
-El AHP convierte tu juicio sobre la importancia de cada criterio en pesos. Llenas
-tres comparaciones por pares (entre 1/9 y 9):
+## Datos de entrada
 
-- GHI vs Pendiente, GHI vs Orientación, Pendiente vs Orientación. Un valor mayor que
-  1 favorece el criterio de la izquierda.
+El complemento requiere al menos una capa DEM cargada en QGIS. Este DEM se utiliza para derivar variables topograficas como la pendiente y la orientacion del terreno.
 
-El panel muestra la matriz, los pesos y la Relación de Consistencia (CR). Solo se
-acepta si **CR < 0.10**. Ejemplo para relieve andino (pendiente dominante): GHI vs
-Pendiente = 0.5, GHI vs Orientación = 2, Pendiente vs Orientación = 4, que da pesos
-Pendiente 0.571, GHI 0.286, Orientación 0.143 con CR = 0.000.
+El usuario tambien puede cargar capas espaciales complementarias, tales como:
 
----
+- Rasteres de cobertura del suelo.
+- Capas vectoriales poligonales de cobertura del suelo.
+- Capas de restricciones ambientales.
+- Poligonos de areas protegidas.
+- Poligonos de areas urbanas.
+- Capas de cuerpos de agua.
+- Zonas de amenaza o exclusion.
+- Poligonos dibujados por el usuario para representar areas que no deben ser consideradas.
 
-## 7. Qué hace cada función interna
+Si la capa de cobertura del suelo es poligonal, el usuario debe seleccionar el campo de atributos donde se almacena el codigo de clase de cobertura. El complemento rasteriza la capa vectorial tomando como referencia la grilla del DEM antes de aplicar las reglas de exclusion.
 
-| Etapa | Función / algoritmo | Qué hace |
-|-------|---------------------|----------|
-| Validación | `validate_config` | Revisa capas, parámetros, opciones ERA5 y la matriz AHP (CR < 0.10). |
-| Pesos AHP | `calculate_ahp` | Calcula pesos por el vector propio y la Relación de Consistencia. |
-| Solicitud ERA5 | `build_era5_request_plan` + `write_era5_request` | Arma el área (desde el DEM, en EPSG:4326 con buffer) y el período, y guarda la solicitud. |
-| Descarga ERA5 | `download_era5_plan` | Descarga el SSRD desde Copernicus con `cdsapi` y descarga HTTP directa. |
-| Proceso ERA5 | `process_era5_ssrd` | Convierte SSRD a GHI, agrega por período y escribe NetCDF, GeoTIFF y CSV. |
-| Georreferenciación ERA5 | `_era5_georeferencing` | Reconstruye el geotransform desde los metadatos GRIB y asigna EPSG:4326 (corrección de georreferenciado). |
-| Percentiles GHI | `raster_percentile_breaks` | Calcula los cortes de aptitud del GHI por percentiles (flujo ERA5). |
-| Rasterización cobertura | `rasterize_vector_to_reference` | Convierte una cobertura vectorial a la rejilla de referencia (reproyecta si hace falta). |
-| Alineación DEM/GHI/LULC | `warp_to_reference` (gdal:warpreproject) | Reproyecta y remuestrea las capas a una rejilla común. |
-| Pendiente / Orientación | `run_gdal_derivative` (gdal:slope / gdal:aspect) | Deriva pendiente y orientación del DEM. |
-| Reclasificaciones | `calculate_raster` + `*_reclass_expression` | Convierte GHI, pendiente y orientación a la escala 1-5. |
-| Máscaras | `slope_mask_expression`, `aspect_mask_expression`, `lulc_mask_expression` | Excluyen pendiente excesiva, orientación polar y coberturas no aptas. |
-| Overlay ponderado | `weighted_overlay_expression` | Suma los criterios por sus pesos AHP. |
-| Umbral y aptitud final | `calculate_raster` | Aplica máscaras y deja en 1 los píxeles que superan el umbral. |
-| Vectorización | `polygonize_raster` (gdal:polygonize) | Convierte los píxeles aptos en polígonos. |
-| Áreas y filtro | `add_area_fields`, `save_filtered_by_area` (native:extractbyexpression) | Calcula el área y conserva los polígonos mayores o iguales al mínimo. |
-| Reportes | `write_summary_report`, `write_summary_csv` | Generan los informes HTML y CSV. |
+## Uso del complemento
 
-Orquestación: `run_analysis` (en `core/workflow.py`) coordina todas las etapas;
-`AnalysisConfig` (en `models/config.py`) guarda y valida los parámetros, incluidos
-los de ERA5; `classFactory` integra el plugin en QGIS.
+1. Cargar en QGIS el DEM del area de estudio.
+2. Cargar, si aplica, la capa de cobertura del suelo o de restricciones que se utilizara para excluir areas no aptas.
+3. Abrir el complemento desde `Raster > Solar Site Suitability (AHP)` o desde el boton de la barra de herramientas.
+4. Seleccionar la capa DEM.
+5. Elegir uno de los dos modos de entrada de radiacion solar:
+   - `Ingresar GHI manualmente`
+   - `Calcular GHI desde ERA5 SSRD`
+6. Si se selecciona `Ingresar GHI manualmente`, se debe proporcionar el raster local de GHI que sera utilizado en el modelo.
+7. Si se selecciona `Calcular GHI desde ERA5 SSRD`, se debe:
+   - Verificar que las credenciales de Copernicus esten configuradas.
+   - Calcular el area de descarga a partir de la extension del DEM.
+   - Definir el periodo de analisis.
+   - Seleccionar el rango horario que sera procesado.
+   - Preferir unicamente horas diurnas, por ejemplo de `07:00` a `17:00`, para evitar incluir valores nocturnos que no son utiles para la generacion solar fotovoltaica.
+   - Seleccionar el modo de procesamiento temporal, como diario, mensual, anual o promedio multianual, segun la duracion y el objetivo del analisis.
+8. Definir la resolucion objetivo. Se recomienda utilizar un valor coherente con la resolucion del DEM.
+9. Definir el umbral de aptitud. El modelo utiliza una calificacion normalizada de `0` a `5`. Solo las celdas con una calificacion igual o superior al umbral seleccionado se conservan como aptas.
+10. Definir el area minima. Este valor controla el tamano minimo de los poligonos viables resultantes. Las celdas aisladas o grupos de celdas muy pequenos que no alcancen esta area minima son excluidos del resultado final.
+11. Definir los parametros de pendiente:
+   - Pendiente maxima admisible.
+   - Valores de corte para clasificar pendientes favorables, aceptables y limite.
+12. Seleccionar el hemisferio. Este parametro controla la orientacion favorable del terreno:
+   - En el hemisferio norte, las laderas con orientacion hacia el sur suelen ser mas favorables.
+   - En el hemisferio sur, las laderas con orientacion hacia el norte suelen ser mas favorables.
+13. Seleccionar las clases de cobertura del suelo o restriccion que seran excluidas del analisis.
+14. Configurar las comparaciones pareadas del metodo AHP entre los criterios principales:
+   - Radiacion solar / GHI.
+   - Pendiente.
+   - Orientacion del terreno.
+15. Revisar los pesos resultantes del AHP y la razon de consistencia.
+16. Si la razon de consistencia es demasiado alta, ajustar las comparaciones pareadas hasta obtener una matriz consistente.
+17. Hacer clic en `Validar y ejecutar`.
+18. Esperar a que finalice el procesamiento. Si se selecciono ERA5, el complemento primero descarga los archivos climaticos requeridos y posteriormente ejecuta el flujo de procesamiento raster.
+19. Revisar las capas resultado que se agregan automaticamente al proyecto de QGIS.
 
----
+## Logica del modelo
 
-## 8. Archivos de salida
+El complemento realiza un analisis multicriterio de aptitud mediante un flujo de trabajo basado en raster. Cada celda del DEM es evaluada de acuerdo con tres criterios principales:
 
-Flujo común:
+- Radiacion solar o GHI.
+- Pendiente del terreno.
+- Orientacion del terreno o aspecto.
 
-- `01_dem_aligned.tif`, `02_ghi_aligned.tif`, `03_lulc_aligned.tif`: insumos armonizados.
-- `04_slope.tif`, `05_aspect.tif`: pendiente y orientación.
-- `06`–`08` reclasificaciones, `09`–`12` máscaras.
-- `13_suitability_raw.tif`, `14_suitability_final.tif`: aptitud (mapa principal).
-- `15_optimal_binary.tif`, `16_optimal_polygons.gpkg`.
-- `17_viable_sites.gpkg`: sitios finales (capa clave).
-- `18_report.html`, `19_report_summary.csv`: reportes.
+Cada variable es clasificada y convertida en una calificacion de aptitud. Posteriormente, los criterios se combinan utilizando los pesos AHP definidos por el usuario mediante comparaciones pareadas.
 
-Adicionales del flujo ERA5:
+La calificacion final varia entre `0` y `5`. El umbral de aptitud determina cuales celdas son aceptadas en el resultado final. Por ejemplo, si el umbral se define en `4`, solamente las celdas con calificaciones entre `4` y `5` seran conservadas como aptas.
 
-- `00_era5_request.json`: la solicitud enviada a Copernicus.
-- `era5_ssrd_*.nc`: archivos NetCDF descargados.
-- producto GHI en GeoTIFF (EPSG:4326) y serie temporal en CSV.
-- `02b_era5_product_clipped.tif`: el producto recortado al área de estudio.
+Luego se aplica el parametro de area minima para evitar reportar celdas aisladas o areas impracticas. El complemento agrupa las celdas aptas en poligonos y elimina aquellos que sean menores al area minima seleccionada.
 
----
+## Procesamiento de radiacion solar con ERA5
 
-## 9. Cómo interpretar el resultado
+Cuando se selecciona la opcion ERA5, el complemento calcula un area de descarga a partir de la extension del DEM. Puede aplicarse un buffer para asegurar que los datos climaticos descargados cubran completamente el area de estudio y evitar efectos de borde.
 
-- `14_suitability_final`: mapa de aptitud (4-5 = mejores zonas).
-- `17_viable_sites`: polígonos recomendados, con su área en hectáreas.
-- El mensaje final y el reporte indican cuántos sitios y cuánta área se obtuvieron.
+El complemento no descarga informacion ERA5 global. Prepara una solicitud limitada al cuadro envolvente del DEM y al periodo seleccionado por el usuario. La solicitud preparada se guarda como:
 
-Si el resultado es 0 polígonos viables, no es un error: no hay zonas contiguas con
-baja pendiente, buena orientación y alta radiación por encima del área mínima. Baja
-el umbral o el área mínima, o revisa las clases LULC excluidas.
+```text
+00_era5_request.json
+```
 
----
+Los datos ERA5 pueden descargarse en uno o varios archivos, dependiendo del intervalo de tiempo y de la resolucion temporal seleccionada. Para pruebas iniciales se recomienda utilizar periodos cortos, por ejemplo algunos dias. Periodos largos, como varios anos de informacion diaria, pueden tardar considerablemente en descargarse y procesarse.
 
-## 10. Problemas frecuentes
+Debido a que ERA5 tiene una resolucion espacial mas gruesa que muchos DEM, areas de estudio pequenas pueden quedar cubiertas por una sola celda o por muy pocas celdas ERA5. En esos casos, la superficie de radiacion solar puede presentar poca variacion espacial y el resultado dependera con mayor fuerza de la pendiente, la orientacion y las restricciones aplicadas.
 
-- "Debe seleccionar una capa...": faltó elegir DEM, radiación o cobertura.
-- "No se encontró el paquete 'cdsapi'...": instala cdsapi y configura `~/.cdsapirc`,
-  o cambia la fuente a GHI manual.
-- "El proyecto de QGIS debe tener un CRS válido": fija un CRS proyectado en metros.
-- "La matriz AHP no es consistente (CR >= 0.1)": ajusta las comparaciones.
-- 0 polígonos: ver sección 9.
+## Procesamiento de coberturas y restricciones
 
----
+El complemento puede utilizar informacion de cobertura del suelo para excluir areas que no deben considerarse tecnica, ambiental o espacialmente aptas.
 
-## 11. Glosario
+Algunos ejemplos de areas que pueden excluirse son:
 
-- **GHI:** radiación global horizontal, el recurso solar disponible.
-- **SSRD:** radiación solar superficial descendente de ERA5, que se convierte a GHI.
-- **ERA5:** reanálisis climático global de Copernicus.
-- **AHP:** Proceso de Jerarquía Analítica, método para asignar pesos a criterios.
-- **CR:** Relación de Consistencia; mide la coherencia de los juicios del AHP.
-- **Orientación (aspect):** dirección hacia la que mira una ladera.
+- Cuerpos de agua.
+- Bosques densos.
+- Areas protegidas.
+- Zonas urbanas.
+- Zonas de amenaza.
+- Areas con uso del suelo incompatible.
+- Poligonos de restriccion definidos por el usuario.
+
+Para capas raster de cobertura del suelo, el usuario selecciona los codigos de clase que desea excluir.
+
+Para capas vectoriales poligonales, el complemento solicita el campo de atributo que contiene el codigo de clase, reproyecta la capa si es necesario y la rasteriza para igualarla a la grilla del DEM antes de aplicar la mascara de exclusion.
+
+Los criterios de exclusion deben definirse de acuerdo con el objetivo del estudio. Por ejemplo, un cuerpo de agua normalmente debe excluirse, mientras que un area sin vegetacion puede permanecer como potencialmente apta, dependiendo del tipo de proyecto.
+
+## Salidas del complemento
+
+Despues de la ejecucion, el complemento agrega los resultados principales al lienzo de QGIS y escribe los archivos de salida en la carpeta seleccionada.
+
+Las salidas incluyen:
+
+- Raster de aptitud.
+- Capa vectorial de sitios viables.
+- Capas raster intermedias utilizadas en el analisis.
+- Reporte HTML.
+- Reporte CSV.
+- Archivo de solicitud ERA5, cuando se utiliza esta opcion.
+- Archivos descargados o procesados de ERA5, segun el flujo de trabajo seleccionado.
+
+Al final del proceso, el complemento informa el numero de poligonos viables y el area total apta. Estos poligonos pueden revisarse en QGIS para identificar areas candidatas para la implantacion de proyectos solares fotovoltaicos.
+
+## Interpretacion de resultados
+
+La capa de sitios viables debe interpretarse como una preseleccion tecnica y no como una decision definitiva de diseno o localizacion.
+
+El complemento identifica areas que cumplen los criterios seleccionados, pero la seleccion final de un sitio para un proyecto solar debe considerar tambien:
+
+- Propiedad del terreno.
+- Restricciones legales.
+- Permisos ambientales.
+- Accesos viales.
+- Distancia a infraestructura electrica.
+- Condiciones constructivas.
+- Condiciones geotecnicas.
+- Amenazas por inundacion o movimientos en masa.
+- Aceptacion comunitaria.
+- Verificacion en campo.
+
+Resultados muy fragmentados pueden indicar que el area de estudio es demasiado amplia, que la resolucion del DEM es muy gruesa, que el area minima definida es muy pequena o que los criterios de seleccion son demasiado permisivos. En ese caso, el usuario puede refinar el analisis aumentando el area minima, reduciendo la pendiente maxima admisible, ajustando los pesos AHP o utilizando un DEM de mayor resolucion.
+
+## Notas para pruebas y publicacion
+
+El paquete del complemento incluye pruebas unitarias dentro de la carpeta `tests/`.
+
+Antes de publicar el complemento en el repositorio oficial de QGIS se recomienda:
+
+- Mantener los datos de demostracion por fuera de la carpeta instalable del complemento.
+- Mantener archivos grandes de documentacion por fuera del paquete del complemento.
+- Documentar claramente las dependencias opcionales asociadas al flujo ERA5.
+- Confirmar que el complemento pueda ejecutarse con GHI manual cuando no existan credenciales ERA5.
+- Probar el complemento en un perfil limpio de QGIS para evitar conflictos con versiones anteriores.
+- Verificar que todos los archivos de salida se escriban correctamente en la carpeta seleccionada.
+- Confirmar que la razon de consistencia AHP se muestre adecuadamente y que las comparaciones inconsistentes sean advertidas antes de ejecutar el modelo.
