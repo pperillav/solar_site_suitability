@@ -2,6 +2,14 @@
 
 Formato basado en Keep a Changelog; el proyecto sigue versionado semántico.
 
+## [1.0.3] - 2026
+
+- Corrección de seguridad: se elimina una ruta temporal fija (`/tmp/...`) en una
+  prueba unitaria, reemplazada por `tempfile.gettempdir()`, que disparaba el hallazgo
+  crítico B108 de Bandit en el escáner de seguridad del repositorio de QGIS.
+- Limpieza de los permisos de archivo del paquete distribuido (sin bit de ejecución
+  en los `.py`).
+
 ## [1.0.2] - 2026
 
 - Descarga ERA5 ajustada para usar la URL de resultados del cliente ECMWF y descarga

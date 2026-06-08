@@ -2,7 +2,7 @@
 name=Solar Site Suitability (AHP)
 qgisMinimumVersion=3.28
 description=Multi-criteria (AHP) site suitability analysis for utility-scale solar PV farms, from DEM, manual GHI or ERA5 SSRD, and land cover. Region-agnostic.
-version=1.0.2
+version=1.0.3
 author=Fernan Jose Severich Diaz, Pedro Joaquin Perilla Vargas
 email=fseverich@unal.edu.co, pperillav@unal.edu.co
 about=Solar Site Suitability (AHP) identifies suitable areas for utility-scale photovoltaic solar farms using a spatial Multi-Criteria Decision Analysis based on the Analytic Hierarchy Process (AHP, Saaty 1980). Starting from a DEM, a land-cover raster, and either a manual GHI raster or ERA5 SSRD downloaded from Copernicus, it derives slope and aspect, reclassifies each criterion to a 1-5 suitability scale, combines them with AHP weights (validated by the Consistency Ratio CR < 0.10), applies boolean exclusion masks (steep slope, pole-facing aspect, protected/urban/water land cover) and extracts contiguous viable polygons above a minimum area. The tool is region-agnostic: thresholds, break values, land-cover classes, AHP weights, minimum area and the favourable orientation (hemisphere selector) are all user-defined, so it works anywhere in the world, not only in Colombia. Dependencies: standard QGIS 3.28+ plus optional cdsapi in the QGIS Python environment for the ERA5 download workflow. Outputs: suitability rasters, viable-sites GeoPackage, ERA5 request/NetCDF/GeoTIFF/CSV products, and HTML/CSV reports.
@@ -17,6 +17,9 @@ server=False
 tags=solar,photovoltaic,suitability,ahp,mcda,raster,gis,renewable energy,site selection,dem,slope,aspect,ghi,era5,copernicus
 license=GPL-3.0-or-later
 changelog=
+    1.0.3 - 2026
+    * Correccion de seguridad: se elimina una ruta temporal fija en una prueba (Bandit B108).
+    * Limpieza de permisos de archivos en el paquete distribuido.
     1.0.2 - 2026
     * Descarga ERA5 ajustada para usar URL de resultados del cliente ECMWF y descarga HTTP directa.
     1.0.1 - 2026

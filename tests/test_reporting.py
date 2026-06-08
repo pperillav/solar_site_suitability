@@ -10,7 +10,7 @@ def _fixture():
     config = AnalysisConfig(target_crs_authid="EPSG:32618", output_folder=".")
     ahp = {"named_weights": {"GHI": 0.286, "Pendiente": 0.571, "Orientacion": 0.143}, "cr": 0.0}
     stats = {"polygon_count": 3, "area_ha_total": 120.0, "area_ha_max": 80.0, "area_ha_min": 10.0}
-    paths = {"viable_sites": "/tmp/v.gpkg"}
+    paths = {"viable_sites": os.path.join(tempfile.gettempdir(), "v.gpkg")}
     return config, ahp, stats, paths
 
 
