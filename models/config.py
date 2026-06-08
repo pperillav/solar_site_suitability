@@ -31,7 +31,7 @@ class AnalysisConfig:
     save_era5_csv: bool = True
     save_era5_clipped_raster: bool = True
     excluded_aspects: list = field(default_factory=lambda: ["N", "NW"])
-    excluded_lulc_classes: str = "1,2,3,4,5,6,24,33"
+    excluded_lulc_classes: str = ""
     ghi_breaks: str = "4.5,5.0,5.5"
     slope_breaks: str = "5,10,15"
     aspect_score_table: str = "SE=5,S=5,SW=4,E=3,W=3,NE=1,NW=1"

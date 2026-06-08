@@ -163,7 +163,7 @@ class SolarSiteSuitabilityDialog(QDialog):
         self.hemisphere_combo = QComboBox()
         self.hemisphere_combo.addItem("Norte (favorable: Sur)", "N")
         self.hemisphere_combo.addItem("Sur (favorable: Norte)", "S")
-        self.lulc_excluded_edit = QLineEdit("1,2,3,4,5,6,24,33")
+        self.lulc_excluded_edit = QLineEdit("")
         self.lulc_excluded_edit.setPlaceholderText("Ejemplo: 1,2,3,24,33")
         self.lulc_excluded_help = QLabel(
             "Excluya clases no aptas como agua, urbano, bosques protegidos o humedales."

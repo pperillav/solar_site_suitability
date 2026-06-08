@@ -69,7 +69,3 @@ errores del Raster Calculator (las mascaras usan la forma compatible `(condicion
 nombres de parametros de `processing.run`, y la firma de `QgsRasterCalculator` en
 versiones distintas a 3.28+.
 
-## 6. Prueba multiplataforma
-
-El comite valora que funcione en Windows, Linux y macOS. Si es posible, repite los
-pasos 1 a 4 en al menos dos sistemas operativos.

@@ -48,7 +48,6 @@ The zip must contain the `potencial_solar/` folder at its top level, with
 - [ ] Run the workflow with the layers in `sample_data/` (load `dem.asc`, `ghi.asc`
       and `lulc.asc`) and confirm it produces the suitability raster, the
       viable-sites layer and the HTML and CSV reports.
-- [ ] Test on at least one other operating system if possible.
 
 ## Upload and request approval
 

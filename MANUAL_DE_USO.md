@@ -81,7 +81,7 @@ proyectado en metros antes de empezar.
 | Área mínima | Tamaño mínimo de un polígono contiguo para conservarlo | 10 ha |
 | Cortes pendiente | Límites que separan las clases de pendiente | 5, 10, 15 |
 | Hemisferio | Orientación favorable (Norte: al sur; Sur: al norte) | Norte |
-| Clases LULC excluidas | Códigos de cobertura que se eliminan | 1,2,3,4,5,6,24,33 |
+| Clases LULC excluidas | Códigos de cobertura que se eliminan (de tu fuente de cobertura) | las define el usuario |
 | Carpeta de salida | Dónde se escriben los resultados | (selección) |
 
 Campos específicos del flujo ERA5:
