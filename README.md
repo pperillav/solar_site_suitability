@@ -53,14 +53,43 @@ model stays physically correct anywhere.
 
 ## Requirements
 
-- QGIS 3.28 or later.
-- No extra Python packages. The plugin only uses QGIS core and the bundled
-  Processing providers (GDAL and native QGIS algorithms).
+QGIS 3.28 o superior.
+- El complemento está diseñado para ejecutarse dentro del entorno Python de QGIS y utiliza herramientas propias de QGIS, así como proveedores de procesamiento incluidos, como GDAL y algoritmos nativos de QGIS.
+- Para el flujo de trabajo con ingreso manual de radiación solar, no se requiere conexión externa una vez que las capas de entrada estén disponibles localmente.
+- Para el flujo de trabajo con ERA5, el usuario debe contar con:
+    - Una cuenta activa en Copernicus Climate Data Store.
+    - Las licencias de los conjuntos de datos requeridos aceptadas en el perfil de usuario de Copernicus.
+    - Un archivo de credenciales de la API configurado con el nombre .cdsapirc en la carpeta del usuario.
+    - El paquete de Python cdsapi instalado en el entorno Python utilizado por QGIS.
+- El complemento acepta un Modelo Digital de Elevación —DEM— como insumo principal del terreno y puede utilizar una capa de cobertura del suelo o una capa de restricciones para excluir áreas no aptas, tales como cuerpos de agua, zonas protegidas, bosques densos, áreas urbanas u otras restricciones definidas por el usuario.
+- El DEM debe estar correctamente georreferenciado. Para obtener mejores resultados, se recomienda que la resolución del DEM sea coherente con la escala del análisis. DEM de resolución muy gruesa pueden generar polígonos viables pixelados, fragmentados o poco representativos.
+- La carpeta de salida debe permitir escritura, ya que el complemento genera archivos intermedios, capas resultado, reportes y, cuando se utiliza ERA5, el archivo de solicitud preparado.
 
+### Pre-Installation
+Configuración de Copernicus / ERA5
+
+La opción ERA5 permite que el complemento descargue datos de radiación solar directamente desde Copernicus Climate Data Store y los convierta en un insumo compatible con el modelo de aptitud basado en GHI.
+
+Antes de utilizar esta opción, se debe realizar la siguiente configuración:
+
+- Ingresar al portal de Copernicus Climate Data Store.
+- Crear una cuenta de usuario.
+- Confirmar la cuenta mediante el correo electrónico de verificación.
+- Iniciar sesión y abrir el perfil de usuario.
+- Completar la información del perfil, incluyendo país, tipo de uso, institución y actividad temática.
+- Abrir la sección de licencias y aceptar los términos y condiciones de los conjuntos de datos requeridos.
+- Copiar las credenciales API indicadas en el perfil de Copernicus.
+- Crear un archivo llamado .cdsapirc en la carpeta principal del usuario. En Windows, normalmente corresponde a la siguiente ruta: C:\Users\<usuario>\.cdsapirc
+-Verificar que el archivo no quede guardado como .txt. El nombre debe conservarse exactamente como .cdsapirc.
+- El archivo debe contener la URL de la API y el token personal suministrado por Copernicus.
+- Abrir la consola OSGeo4W Shell de QGIS y verificar que Python esté disponible mediante el comando: python --version
+
+- Instalar o actualizar el cliente CDS API dentro del entorno Python de QGIS:
+    - python -m pip install --upgrade pip
+    - python -m pip install "cdsapi>=0.7.7"
+
+Esta configuración solo es necesaria cuando el usuario selecciona la opción Calcular GHI desde ERA5 SSRD. Si el usuario ya cuenta con un raster de GHI proveniente de otra fuente, puede utilizar el flujo de trabajo de ingreso manual.
 ## Installation
-
-Once published in the official repository: open QGIS, go to Plugins > Manage and
-Install Plugins, search for "Solar Site Suitability (AHP)" and install.
 
 Manual install from this repository:
 
