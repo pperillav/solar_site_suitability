@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+*.zip
+*.aux.xml
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
